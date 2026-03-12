@@ -1,0 +1,39 @@
+version: "3.9"
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Lightweight Docker Compose – no Oracle (uses H2 in-memory database)
+# Use this for local development when you don't need Oracle.
+#
+# Usage:
+#   docker compose -f docker-compose-dev.yml up -d
+#   open http://localhost:8080/swagger-ui.html
+# ══════════════════════════════════════════════════════════════════════════════
+
+services:
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis-dev
+    ports:
+      - "6379:6379"
+    command: redis-server --loglevel warning
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: spring-caching-app-dev
+    ports:
+      - "8080:8080"
+    environment:
+      # No oracle profile → uses H2 by default
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    depends_on:
+      redis:
+        condition: service_healthy

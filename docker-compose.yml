@@ -1,0 +1,88 @@
+version: "3.9"
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Spring Caching Demo – Full Stack Docker Compose
+# ══════════════════════════════════════════════════════════════════════════════
+# Services:
+#   oracle-db   – Oracle Database Free 23c (lightweight; requires ~2 GB RAM)
+#   redis       – Redis 7 (for distributed caching)
+#   app         – Spring Boot application
+#
+# Usage:
+#   docker compose up -d
+#   # Wait ~60 s for Oracle to initialise on first run
+#   open http://localhost:8080/swagger-ui.html
+#
+# To run without building the app image (e.g. from IDE):
+#   docker compose up -d oracle-db redis
+# ══════════════════════════════════════════════════════════════════════════════
+
+services:
+
+  # ── Oracle Database Free 23c ─────────────────────────────────────────────────
+  oracle-db:
+    image: container-registry.oracle.com/database/free:latest
+    container_name: oracle-db
+    environment:
+      ORACLE_PWD: Oracle123          # SYS / SYSTEM password
+      ORACLE_CHARACTERSET: AL32UTF8
+    ports:
+      - "1521:1521"
+      - "5500:5500"                   # EM Express (optional)
+    volumes:
+      - oracle_data:/opt/oracle/oradata
+      - ./docker/oracle-init:/docker-entrypoint-initdb.d   # init scripts
+    healthcheck:
+      test: ["CMD", "/opt/oracle/checkDBStatus.sh"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
+
+  # ── Redis 7 ──────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    command: redis-server --save 60 1 --loglevel warning
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Spring Boot Application ───────────────────────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: spring-caching-app
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: oracle
+      ORACLE_HOST: oracle-db
+      ORACLE_PORT: 1521
+      ORACLE_SERVICE: FREEPDB1
+      ORACLE_USER: caching_user
+      ORACLE_PASSWORD: Caching123
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    depends_on:
+      oracle-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+volumes:
+  oracle_data:
+  redis_data:

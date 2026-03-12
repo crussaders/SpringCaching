@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  EhCache 3 XML configuration
+  ═══════════════════════════════════════════════════════════════════════════════
+  This file is referenced in application.yml via spring.cache.jcache.config.
+  It configures the EhCache-backed JSR-107 (JCache) cache manager.
+
+  NOTE: In this demo the *primary* cache manager is Caffeine.
+        EhCache is configured here as a SECONDARY cache manager to demonstrate
+        that Spring Boot supports multiple concurrent cache providers.
+        Services that want EhCache must specify cacheManager = "jCacheCacheManager".
+
+  Key EhCache 3 concepts shown here:
+  ─────────────────────────────────
+  • heap tier  – entries stored on the JVM heap (fast, GC-managed)
+  • expiry     – TTL (time-to-live) and TTI (time-to-idle) policies
+  • Serializer – how values are written to off-heap or disk tiers
+  ═══════════════════════════════════════════════════════════════════════════════
+-->
+<config xmlns="http://www.ehcache.org/v3"
+        xmlns:jsr107="http://www.ehcache.org/v3/jsr107">
+
+    <!--
+      jsr107:defaults tells EhCache to also act as a JSR-107 provider,
+      making it compatible with Spring's @EnableCaching + JCacheCacheManager.
+    -->
+    <service>
+        <jsr107:defaults enable-management="true" enable-statistics="true"/>
+    </service>
+
+    <!--
+      ehcache-products-by-id
+      ════════════════════════════════
+      • heap = 500 entries
+      • TTL  = 10 minutes (same as Caffeine productById)
+      • Used to illustrate EhCache heap-tier caching; in production you could
+        add an off-heap or disk tier for very large caches.
+    -->
+    <cache alias="ehcache-products-by-id">
+        <key-type>java.lang.Long</key-type>
+        <value-type>com.example.springcaching.dto.ProductResponse</value-type>
+        <expiry>
+            <ttl unit="minutes">10</ttl>
+        </expiry>
+        <resources>
+            <heap unit="entries">500</heap>
+        </resources>
+    </cache>
+
+    <!--
+      ehcache-categories-all
+      ════════════════════════════════
+      • heap = 1 entry (the whole list)
+      • TTL  = 5 minutes
+    -->
+    <cache alias="ehcache-categories-all">
+        <key-type>java.lang.String</key-type>
+        <value-type>java.util.List</value-type>
+        <expiry>
+            <ttl unit="minutes">5</ttl>
+        </expiry>
+        <resources>
+            <heap unit="entries">1</heap>
+        </resources>
+    </cache>
+
+</config>
